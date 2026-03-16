@@ -51,7 +51,21 @@
         <input type="text" id="custLatLng" readonly placeholder="Chạm bản đồ để lấy tọa độ">
     </div>
     <button class="btn-save" onclick="luuKhachHang()">LƯU ĐƠN</button>
+<style>
+    .search-box { margin-bottom: 15px; border: 2px solid var(--primary); border-radius: 8px; padding: 5px; background: white; }
+    .search-box input { border: none; width: 100%; outline: none; padding: 5px; }
+    .btn-backup { background: #6c757d; font-size: 12px; margin-top: 10px; }
+</style>
 
+<div class="search-box">
+    <input type="text" id="searchInput" onkeyup="timKiemKhachHang()" placeholder="🔍 Tìm tên hoặc SĐT khách...">
+</div>
+
+<div style="display: flex; gap: 5px;">
+    <button class="btn-backup" onclick="xuatDuLieu()">📥 Xuất dữ liệu (Backup)</button>
+    <button class="btn-backup" onclick="document.getElementById('importFile').click()">📤 Nhập dữ liệu</button>
+    <input type="file" id="importFile" style="display:none" onchange="nhapDuLieu(event)">
+</div>
     <div style="background:#f8f9fa; padding:10px; margin-top:15px; border-radius:8px;">
         <strong>🚚 Lộ trình đi ship</strong>
         <div id="queueList"><small>Trống...</small></div>
@@ -81,7 +95,67 @@
     var userMarker = null;
     var routingControl = null;
     var hasAlerted = false;
+// 1. Hàm tìm kiếm khách hàng
+function timKiemKhachHang() {
+    let input = document.getElementById('searchInput').value.toLowerCase();
+    let items = document.getElementsByClassName('customer-item');
 
+    for (let i = 0; i < items.length; i++) {
+        let text = items[i].innerText.toLowerCase();
+        if (text.includes(input)) {
+            items[i].style.display = "";
+        } else {
+            items[i].style.display = "none";
+        }
+    }
+}
+
+// 2. Hàm xuất dữ liệu ra file .txt để lưu trữ
+function xuatDuLieu() {
+    if (customers.length === 0) return alert("Không có dữ liệu để xuất!");
+    
+    const dataStr = JSON.stringify(customers, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    
+    const exportFileDefaultName = 'danh-sach-khach-hang.json';
+    let linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+}
+
+// 3. Hàm nhập dữ liệu từ file vào lại App
+function nhapDuLieu(event) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const importedData = JSON.parse(e.target.result);
+            if (Array.isArray(importedData)) {
+                if (confirm("Bạn có muốn ghi đè danh sách hiện tại bằng dữ liệu mới không?")) {
+                    customers = importedData;
+                    localStorage.setItem('ship_db', JSON.stringify(customers));
+                    hienThiDanhSach();
+                    alert("Đã nhập dữ liệu thành công!");
+                }
+            }
+        } catch (err) {
+            alert("File không đúng định dạng!");
+        }
+    };
+    reader.readAsText(event.target.files[0]);
+}
+
+// 4. Hàm sửa thông tin khách hàng
+function suaKhachHang(index) {
+    let c = customers[index];
+    document.getElementById('custName').value = c.name;
+    document.getElementById('custPhone').value = c.phone;
+    document.getElementById('custLatLng').value = c.lat + "," + c.lng;
+    
+    // Xóa bản ghi cũ sau khi đưa lên form để "Lưu" lại bản mới
+    customers.splice(index, 1);
+    alert("Đã đưa thông tin lên form. Bạn hãy sửa rồi nhấn 'LƯU ĐƠN' nhé!");
+}
     // 1. Theo dõi vị trí liên tục
     function startTracking() {
         if (!navigator.geolocation) return alert("Trình duyệt không hỗ trợ GPS");
@@ -176,19 +250,28 @@
         var bits = ll.split(',');
         customers.push({name: name, phone: document.getElementById('custPhone').value, lat: bits[0], lng: bits[1]});
         localStorage.setItem('ship_db', JSON.stringify(customers));
+        function hienThiDanhSach() {
+    var html = '';
+    customers.forEach((c, i) => {
+        html += `<div class="customer-item">
+            <b>${c.name}</b> - ${c.phone} 
+            <div style="display:flex; gap:3px; margin-top:5px">
+                <button style="background:var(--primary); font-size:10px; width:auto; padding:5px" onclick="themVaoQueue(${i})">+ Đi đơn</button>
+                <button style="background:#ffc107; font-size:10px; width:auto; padding:5px; color:#000" onclick="suaKhachHang(${i})">Sửa</button>
+                <button style="background:var(--danger); font-size:10px; width:auto; padding:5px" onclick="xoaVinhVien(${i})">Xóa</button>
+            </div>
+        </div>`;
+    });
+    document.getElementById('customerList').innerHTML = html;
+}
+
+function xoaVinhVien(i) {
+    if(confirm("Bạn muốn xóa vĩnh viễn khách hàng này khỏi danh bạ?")) {
+        customers.splice(i, 1);
+        localStorage.setItem('ship_db', JSON.stringify(customers));
         hienThiDanhSach();
     }
-
-    function hienThiDanhSach() {
-        var html = '';
-        customers.forEach((c, i) => {
-            html += `<div class="customer-item">
-                <b>${c.name}</b> - ${c.phone} 
-                <button style="background:#007bff; width:auto; padding:5px; font-size:11px" onclick="themVaoQueue(${i})">+ Đi đơn này</button>
-            </div>`;
-        });
-        document.getElementById('customerList').innerHTML = html;
-    }
+}
 
     function themVaoQueue(i) {
         deliveryQueue.push(customers[i]);
