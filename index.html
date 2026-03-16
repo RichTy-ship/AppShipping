@@ -3,77 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Shipper Pro Max - GPS & Alert</title>
+    <title>Shipper Ultimate V3 - Full Features</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
     
     <style>
         :root { --primary: #007bff; --success: #28a745; --orange: #fd7e14; --danger: #dc3545; }
-        body { display: flex; flex-direction: column; margin: 0; font-family: sans-serif; height: 100vh; background: #f0f2f5; }
-        #sidebar { width: 100%; max-height: 45vh; overflow-y: auto; background: white; padding: 15px; box-sizing: border-box; border-bottom: 2px solid #ddd; z-index: 1001; }
+        body { display: flex; flex-direction: column; margin: 0; font-family: -apple-system, system-ui, sans-serif; height: 100vh; background: #f4f7f9; }
+        #sidebar { width: 100%; max-height: 50vh; overflow-y: auto; background: white; padding: 15px; box-sizing: border-box; border-bottom: 2px solid #ddd; z-index: 1001; }
         #map { flex: 1; width: 100%; position: relative; }
-        @media(min-width: 768px) { body { flex-direction: row; } #sidebar { width: 400px; height: 100vh; max-height: 100vh; border-right: 2px solid #ddd; } }
+        
+        @media(min-width: 768px) {
+            body { flex-direction: row; }
+            #sidebar { width: 400px; height: 100vh; max-height: 100vh; border-right: 2px solid #ddd; }
+        }
 
-        /* Thông báo cảnh báo khoảng cách */
+        .input-group { margin-bottom: 8px; }
+        .input-group input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        
+        button { width: 100%; padding: 12px; margin-top: 5px; border: none; border-radius: 6px; cursor: pointer; color: white; font-weight: bold; font-size: 14px; }
+        .btn-ocr { background: #6f42c1; }
+        .btn-save { background: var(--success); }
+        .btn-optimize { background: var(--orange); flex: 1; }
+        .btn-route { background: var(--primary); flex: 1; }
+        
         #distance-alert {
             position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
             z-index: 2000; background: var(--orange); color: white; padding: 10px 20px;
             border-radius: 25px; font-weight: bold; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
 
-        .input-group { margin-bottom: 10px; }
-        .input-group input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; margin-top: 4px; }
-        button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; margin-top: 5px; }
-        
-        .btn-save { background: var(--success); }
-        .btn-route { background: var(--primary); }
-        .btn-optimize { background: var(--orange); }
+        .search-box { margin: 10px 0; border: 2px solid var(--primary); border-radius: 6px; padding: 5px; }
+        .search-box input { border: none; width: 100%; outline: none; }
 
-        .customer-item { background: #fff; padding: 12px; margin-top: 10px; border-radius: 8px; border: 1px solid #eee; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .customer-item { background: #fff; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #eee; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .gps-button {
-            position: absolute; bottom: 25px; right: 20px; z-index: 1000;
-            background: white; width: 50px; height: 50px; border-radius: 50%;
+            position: absolute; bottom: 30px; right: 20px; z-index: 1000;
+            background: white; width: 55px; height: 55px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2); border: 2px solid var(--primary); font-size: 24px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 2px solid var(--primary); font-size: 26px;
         }
     </style>
 </head>
 <body>
 
-<div id="distance-alert">🚀 Sắp đến nơi!</div>
+<div id="distance-alert">🚀 ĐANG ĐẾN GẦN KHÁCH!</div>
 
 <div id="sidebar">
-    <h3>📦 Đơn hàng của bạn</h3>
+    <h3 style="margin-top:0">📦 Shipper Pro V3</h3>
+    
+    <input type="file" id="imageInput" accept="image/*" capture="environment" style="display:none">
+    <button class="btn-ocr" onclick="document.getElementById('imageInput').click()">📷 QUÉT ĐƠN HÀNG (AI)</button>
+    <div id="ocrStatus" style="display:none; color:var(--primary); font-size:12px; text-align:center">Đang nhận diện chữ...</div>
+
     <div class="input-group">
-        <input type="text" id="custName" placeholder="Tên khách">
-        <input type="tel" id="custPhone" placeholder="SĐT">
-        <input type="text" id="custLatLng" readonly placeholder="Chạm bản đồ để lấy tọa độ">
+        <input type="text" id="custName" placeholder="Tên khách hàng">
+        <input type="tel" id="custPhone" placeholder="Số điện thoại">
+        <input type="text" id="custLatLng" readonly placeholder="Chạm bản đồ để lấy vị trí" style="background:#f9f9f9">
     </div>
-    <button class="btn-save" onclick="luuKhachHang()">LƯU ĐƠN</button>
-<style>
-    .search-box { margin-bottom: 15px; border: 2px solid var(--primary); border-radius: 8px; padding: 5px; background: white; }
-    .search-box input { border: none; width: 100%; outline: none; padding: 5px; }
-    .btn-backup { background: #6c757d; font-size: 12px; margin-top: 10px; }
-</style>
+    <button class="btn-save" onclick="luuKhachHang()">LƯU KHÁCH HÀNG</button>
 
-<div class="search-box">
-    <input type="text" id="searchInput" onkeyup="timKiemKhachHang()" placeholder="🔍 Tìm tên hoặc SĐT khách...">
-</div>
-
-<div style="display: flex; gap: 5px;">
-    <button class="btn-backup" onclick="xuatDuLieu()">📥 Xuất dữ liệu (Backup)</button>
-    <button class="btn-backup" onclick="document.getElementById('importFile').click()">📤 Nhập dữ liệu</button>
-    <input type="file" id="importFile" style="display:none" onchange="nhapDuLieu(event)">
-</div>
-    <div style="background:#f8f9fa; padding:10px; margin-top:15px; border-radius:8px;">
-        <strong>🚚 Lộ trình đi ship</strong>
-        <div id="queueList"><small>Trống...</small></div>
-        <div style="display:flex; gap:5px; margin-top:10px;">
-            <button class="btn-optimize" onclick="toiUuLoTrinh()">Tối ưu</button>
-            <button class="btn-route" onclick="batDauLoTrinh()">DẪN ĐƯỜNG</button>
+    <div style="background:#f8f9fa; padding:10px; border-radius:8px; margin-top:10px">
+        <strong>🚚 Lộ trình chờ:</strong>
+        <div id="queueList" style="font-size:13px; margin:5px 0">Trống...</div>
+        <div style="display:flex; gap:5px">
+            <button class="btn-optimize" onclick="toiUuLoTrinh()">⚡ Tối ưu</button>
+            <button class="btn-route" onclick="batDauLoTrinh()">🗺️ Dẫn đường</button>
         </div>
     </div>
+
+    <div class="search-box">
+        <input type="text" id="searchInput" onkeyup="timKiem()" placeholder="🔍 Tìm tên hoặc SĐT...">
+    </div>
+
+    <div style="display:flex; gap:5px; margin-bottom:10px">
+        <button onclick="xuatDuLieu()" style="background:#6c757d; font-size:11px">📥 Xuất File</button>
+        <button onclick="document.getElementById('importFile').click()" style="background:#6c757d; font-size:11px">📤 Nhập File</button>
+        <input type="file" id="importFile" style="display:none" onchange="nhapDuLieu(event)">
+    </div>
+
     <div id="customerList"></div>
 </div>
 
@@ -83,210 +92,147 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 <script>
-    // Khởi tạo bản đồ
-    var map = L.map('map', { zoomControl: false }).setView([10.762, 106.660], 13);
+    var map = L.map('map', { zoomControl: false }).setView([10.76, 106.66], 13);
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}').addTo(map);
 
-    var customers = JSON.parse(localStorage.getItem('ship_db')) || [];
+    var customers = JSON.parse(localStorage.getItem('shipper_v3_db')) || [];
     var deliveryQueue = [];
     var userLocation = null;
     var userMarker = null;
     var routingControl = null;
-    var hasAlerted = false;
-// 1. Hàm tìm kiếm khách hàng
-function timKiemKhachHang() {
-    let input = document.getElementById('searchInput').value.toLowerCase();
-    let items = document.getElementsByClassName('customer-item');
+    var alerted = false;
 
-    for (let i = 0; i < items.length; i++) {
-        let text = items[i].innerText.toLowerCase();
-        if (text.includes(input)) {
-            items[i].style.display = "";
+    // 1. GPS Liên tục
+    navigator.geolocation.watchPosition(p => {
+        userLocation = L.latLng(p.coords.latitude, p.coords.longitude);
+        if (!userMarker) {
+            userMarker = L.circleMarker(userLocation, {radius:9, color:'#fff', fillColor:'#007bff', fillOpacity:1, weight:3}).addTo(map);
         } else {
-            items[i].style.display = "none";
+            userMarker.setLatLng(userLocation);
         }
-    }
-}
-
-// 2. Hàm xuất dữ liệu ra file .txt để lưu trữ
-function xuatDuLieu() {
-    if (customers.length === 0) return alert("Không có dữ liệu để xuất!");
-    
-    const dataStr = JSON.stringify(customers, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    
-    const exportFileDefaultName = 'danh-sach-khach-hang.json';
-    let linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
-}
-
-// 3. Hàm nhập dữ liệu từ file vào lại App
-function nhapDuLieu(event) {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const importedData = JSON.parse(e.target.result);
-            if (Array.isArray(importedData)) {
-                if (confirm("Bạn có muốn ghi đè danh sách hiện tại bằng dữ liệu mới không?")) {
-                    customers = importedData;
-                    localStorage.setItem('ship_db', JSON.stringify(customers));
-                    hienThiDanhSach();
-                    alert("Đã nhập dữ liệu thành công!");
-                }
-            }
-        } catch (err) {
-            alert("File không đúng định dạng!");
+        checkAlert();
+        if (routingControl) {
+            var wps = routingControl.getWaypoints();
+            wps[0].latLng = userLocation;
+            routingControl.setWaypoints(wps);
         }
-    };
-    reader.readAsText(event.target.files[0]);
-}
+    }, null, { enableHighAccuracy: true });
 
-// 4. Hàm sửa thông tin khách hàng
-function suaKhachHang(index) {
-    let c = customers[index];
-    document.getElementById('custName').value = c.name;
-    document.getElementById('custPhone').value = c.phone;
-    document.getElementById('custLatLng').value = c.lat + "," + c.lng;
-    
-    // Xóa bản ghi cũ sau khi đưa lên form để "Lưu" lại bản mới
-    customers.splice(index, 1);
-    alert("Đã đưa thông tin lên form. Bạn hãy sửa rồi nhấn 'LƯU ĐƠN' nhé!");
-}
-    // 1. Theo dõi vị trí liên tục
-    function startTracking() {
-        if (!navigator.geolocation) return alert("Trình duyệt không hỗ trợ GPS");
-        
-        navigator.geolocation.watchPosition(pos => {
-            userLocation = L.latLng(pos.coords.latitude, pos.coords.longitude);
-            
-            // Cập nhật Marker người dùng
-            if (!userMarker) {
-                userMarker = L.circleMarker(userLocation, {radius: 8, color: '#fff', fillColor: '#007bff', fillOpacity: 1, weight: 2}).addTo(map);
-            } else {
-                userMarker.setLatLng(userLocation);
-            }
+    function timToiNgay() { if(userLocation) map.flyTo(userLocation, 16); }
 
-            // Kiểm tra cảnh báo khoảng cách (200m)
-            checkDistanceAlert();
-
-            // Cập nhật đường đi nếu đang bật dẫn đường
-            if (routingControl) {
-                var wps = routingControl.getWaypoints();
-                wps[0].latLng = userLocation;
-                routingControl.setWaypoints(wps);
-            }
-        }, err => console.error("Lỗi GPS:", err), { enableHighAccuracy: true });
-    }
-
-    function timToiNgay() {
-        if (userLocation) map.flyTo(userLocation, 16);
-        else alert("Đang chờ tín hiệu GPS...");
-    }
-
-    // 2. Tính khoảng cách & Cảnh báo
-    function checkDistanceAlert() {
+    // 2. Cảnh báo (Rung + Nói)
+    function checkAlert() {
         if (deliveryQueue.length > 0 && userLocation) {
-            var next = deliveryQueue[0];
-            var dist = userLocation.distanceTo(L.latLng(next.lat, next.lng));
-            
-            if (dist < 200 && !hasAlerted) {
-                hasAlerted = true;
+            var dist = userLocation.distanceTo(L.latLng(deliveryQueue[0].lat, deliveryQueue[0].lng));
+            if (dist < 200 && !alerted) {
+                alerted = true;
                 document.getElementById('distance-alert').style.display = 'block';
-                if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
-                
-                var msg = new SpeechSynthesisUtterance("Sắp đến nhà " + next.name);
-                msg.lang = 'vi-VN';
-                window.speechSynthesis.speak(msg);
-            } else if (dist > 250) {
-                hasAlerted = false;
-                document.getElementById('distance-alert').style.display = 'none';
-            }
+                if(navigator.vibrate) navigator.vibrate([500, 200, 500]);
+                var speech = new SpeechSynthesisUtterance("Sắp đến nhà " + deliveryQueue[0].name);
+                speech.lang = 'vi-VN';
+                window.speechSynthesis.speak(speech);
+            } else if (dist > 250) { alerted = false; document.getElementById('distance-alert').style.display = 'none'; }
         }
     }
 
-    // 3. Xử lý Dẫn đường (Routing)
+    // 3. OCR Quét ảnh
+    document.getElementById('imageInput').addEventListener('change', function(e) {
+        var file = e.target.files[0];
+        document.getElementById('ocrStatus').style.display = 'block';
+        Tesseract.recognize(file, 'vie').then(({ data: { text } }) => {
+            document.getElementById('ocrStatus').style.display = 'none';
+            var phone = text.match(/(0[3|5|7|8|9][0-9]{8})\b/);
+            if(phone) document.getElementById('custPhone').value = phone[0];
+            var lines = text.split('\n').filter(l => l.length > 5);
+            if(lines.length > 0) document.getElementById('custName').value = lines[0].substring(0,20);
+        });
+    });
+
+    // 4. Quản lý dữ liệu
+    function luuKhachHang() {
+        var name = document.getElementById('custName').value;
+        var ll = document.getElementById('custLatLng').value;
+        if(!name || !ll) return alert("Chưa có tên hoặc vị trí!");
+        var pos = ll.split(',');
+        customers.push({name: name, phone: document.getElementById('custPhone').value, lat: pos[0], lng: pos[1], history: []});
+        localStorage.setItem('shipper_v3_db', JSON.stringify(customers));
+        hienThiDanhSach();
+        resetForm();
+    }
+
+    function hienThiDanhSach() {
+        var h = '';
+        customers.forEach((c, i) => {
+            h += `<div class="customer-item">
+                <b>${c.name}</b> - ${c.phone}
+                <div style="display:flex; gap:5px; margin-top:8px">
+                    <button style="background:var(--primary); padding:5px; font-size:11px" onclick="themQueue(${i})">+ Lộ trình</button>
+                    <button style="background:#ffc107; color:black; padding:5px; font-size:11px" onclick="suaKhach(${i})">Sửa</button>
+                    <button style="background:var(--danger); padding:5px; font-size:11px" onclick="xoaKhach(${i})">Xong/Xoá</button>
+                </div>
+            </div>`;
+        });
+        document.getElementById('customerList').innerHTML = h;
+    }
+
+    function themQueue(i) { deliveryQueue.push(customers[i]); capNhatQueueUI(); }
+    function capNhatQueueUI() {
+        document.getElementById('queueList').innerHTML = deliveryQueue.map((c, i) => `<div>${i+1}. ${c.name} <span onclick="deliveryQueue.splice(${i},1);capNhatQueueUI()" style="color:red">✖</span></div>`).join('');
+    }
+
     function batDauLoTrinh() {
-        if (!userLocation) return alert("Vui lòng đợi App xác định vị trí của bạn!");
-        if (deliveryQueue.length === 0) return alert("Hãy thêm ít nhất 1 đơn vào lộ trình!");
+        if(!userLocation || !deliveryQueue.length) return alert("Thiếu GPS hoặc Đơn hàng!");
+        if(routingControl) map.removeControl(routingControl);
+        routingControl = L.Routing.control({
+            waypoints: [userLocation, ...deliveryQueue.map(c => L.latLng(c.lat, c.lng))],
+            language: 'vi',
+            createMarker: (i, wp) => L.marker(wp.latLng).bindPopup(i==0?"Bạn":deliveryQueue[i-1].name)
+        }).addTo(map);
+    }
 
-        // Xóa đường cũ nếu có
-        if (routingControl) map.removeControl(routingControl);
+    function toiUuLoTrinh() {
+        if(!userLocation) return alert("Chờ GPS!");
+        deliveryQueue.sort((a,b) => userLocation.distanceTo(L.latLng(a.lat, a.lng)) - userLocation.distanceTo(L.latLng(b.lat, b.lng)));
+        capNhatQueueUI();
+        batDauLoTrinh();
+    }
 
-        try {
-            var waypoints = [
-                userLocation,
-                ...deliveryQueue.map(c => L.latLng(c.lat, c.lng))
-            ];
+    function xuatDuLieu() {
+        var blob = new Blob([JSON.stringify(customers)], {type: "application/json"});
+        var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "shipper_backup.json"; a.click();
+    }
 
-            routingControl = L.Routing.control({
-                waypoints: waypoints,
-                routeWhileDragging: false,
-                lineOptions: { styles: [{ color: '#007bff', weight: 6 }] },
-                createMarker: function(i, wp) {
-                    return L.marker(wp.latLng).bindPopup(i === 0 ? "Bạn" : deliveryQueue[i-1].name);
-                }
-            }).addTo(map);
+    function nhapDuLieu(e) {
+        var reader = new FileReader();
+        reader.onload = function(event) {
+            customers = JSON.parse(event.target.result);
+            localStorage.setItem('shipper_v3_db', JSON.stringify(customers));
+            hienThiDanhSach();
+        };
+        reader.readAsText(e.target.files[0]);
+    }
 
-            alert("Đã kết nối dữ liệu dẫn đường!");
-        } catch (e) {
-            alert("Lỗi nạp bản đồ dẫn đường. Hãy tải lại trang!");
+    function timKiem() {
+        var k = document.getElementById('searchInput').value.toLowerCase();
+        var items = document.getElementsByClassName('customer-item');
+        for(var i=0; i<items.length; i++) {
+            items[i].style.display = items[i].innerText.toLowerCase().includes(k) ? "" : "none";
         }
     }
 
-    // Các hàm phụ trợ
     map.on('click', e => {
         document.getElementById('custLatLng').value = e.latlng.lat.toFixed(6) + "," + e.latlng.lng.toFixed(6);
         L.marker(e.latlng).addTo(map);
     });
 
-    function luuKhachHang() {
-        var name = document.getElementById('custName').value;
-        var ll = document.getElementById('custLatLng').value;
-        if(!name || !ll) return alert("Thiếu tên hoặc tọa độ!");
-        var bits = ll.split(',');
-        customers.push({name: name, phone: document.getElementById('custPhone').value, lat: bits[0], lng: bits[1]});
-        localStorage.setItem('ship_db', JSON.stringify(customers));
-        function hienThiDanhSach() {
-    var html = '';
-    customers.forEach((c, i) => {
-        html += `<div class="customer-item">
-            <b>${c.name}</b> - ${c.phone} 
-            <div style="display:flex; gap:3px; margin-top:5px">
-                <button style="background:var(--primary); font-size:10px; width:auto; padding:5px" onclick="themVaoQueue(${i})">+ Đi đơn</button>
-                <button style="background:#ffc107; font-size:10px; width:auto; padding:5px; color:#000" onclick="suaKhachHang(${i})">Sửa</button>
-                <button style="background:var(--danger); font-size:10px; width:auto; padding:5px" onclick="xoaVinhVien(${i})">Xóa</button>
-            </div>
-        </div>`;
-    });
-    document.getElementById('customerList').innerHTML = html;
-}
+    function resetForm() { document.getElementById('custName').value=''; document.getElementById('custPhone').value=''; document.getElementById('custLatLng').value=''; }
+    function suaKhach(i) { var c=customers[i]; document.getElementById('custName').value=c.name; document.getElementById('custPhone').value=c.phone; document.getElementById('custLatLng').value=c.lat+","+c.lng; customers.splice(i,1); hienThiDanhSach(); }
+    function xoaKhach(i) { if(confirm("Giao xong?")) { customers.splice(i,1); localStorage.setItem('shipper_v3_db', JSON.stringify(customers)); hienThiDanhSach(); } }
 
-function xoaVinhVien(i) {
-    if(confirm("Bạn muốn xóa vĩnh viễn khách hàng này khỏi danh bạ?")) {
-        customers.splice(i, 1);
-        localStorage.setItem('ship_db', JSON.stringify(customers));
-        hienThiDanhSach();
-    }
-}
-
-    function themVaoQueue(i) {
-        deliveryQueue.push(customers[i]);
-        var qhtml = deliveryQueue.map((c,idx) => `<div>${idx+1}. ${c.name}</div>`).join('');
-        document.getElementById('queueList').innerHTML = qhtml;
-    }
-
-    function toiUuLoTrinh() {
-        if (!userLocation) return alert("Chưa có tọa độ của bạn!");
-        deliveryQueue.sort((a,b) => userLocation.distanceTo(L.latLng(a.lat, a.lng)) - userLocation.distanceTo(L.latLng(b.lat, b.lng)));
-        themVaoQueue(-1); // chỉ để update UI
-        batDauLoTrinh();
-    }
-
-    window.onload = () => { startTracking(); hienThiDanhSach(); };
+    window.onload = () => hienThiDanhSach();
 </script>
 </body>
 </html>
