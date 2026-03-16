@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Shipper Ultimate Pro</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+    
+    <style>
+        :root { --primary: #007bff; --success: #28a745; --orange: #fd7e14; --danger: #dc3545; }
+        body { display: flex; flex-direction: column; margin: 0; font-family: -apple-system, system-ui, sans-serif; height: 100vh; background: #f0f2f5; }
+        #sidebar { width: 100%; max-height: 50vh; overflow-y: auto; background: white; padding: 20px; box-sizing: border-box; border-bottom: 2px solid #ddd; z-index: 1001; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        #map { flex: 1; width: 100%; position: relative; }
+        
+        @media(min-width: 768px) {
+            body { flex-direction: row; }
+            #sidebar { width: 400px; height: 100vh; max-height: 100vh; border-right: 2px solid #ddd; border-bottom: none; }
+        }
+
+        /* Form styling */
+        .section-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+        .input-group { margin-bottom: 12px; }
+        .input-group label { display: block; font-size: 12px; color: #666; font-weight: 600; margin-bottom: 4px; }
+        .input-group input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 14px; outline: none; }
+        .input-group input:focus { border-color: var(--primary); }
+        
+        /* Buttons */
+        button { width: 100%; padding: 12px; margin-top: 5px; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; font-size: 14px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-ocr { background: #6f42c1; border: 2px dashed #fff; margin-bottom: 15px; }
+        .btn-save { background: var(--success); margin-bottom: 15px; }
+        .btn-optimize { background: var(--orange); flex: 1; }
+        .btn-route { background: var(--primary); flex: 1; }
+        button:active { transform: scale(0.98); opacity: 0.9; }
+
+        /* Customer Cards */
+        .customer-item { background: #fff; padding: 15px; margin-bottom: 12px; border-radius: 10px; border: 1px solid #eee; box-shadow: 0 4px 6px rgba(0,0,0,0.02); position: relative; }
+        .cust-phone { color: var(--primary); text-decoration: none; font-weight: bold; font-size: 16px; }
+        .cust-note { display: block; background: #fff3cd; border-left: 4px solid #ffc107; padding: 8px; margin-top: 10px; font-size: 13px; border-radius: 4px; color: #856404; }
+        .habit-tag { font-size: 12px; color: var(--success); font-weight: bold; margin-top: 5px; display: block; }
+
+        /* Route Queue */
+        .delivery-queue { background: #f8f9fa; padding: 15px; margin-top: 15px; border-radius: 10px; border: 1px solid #dee2e6; }
+        .queue-item { font-size: 14px; padding: 8px 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+
+        /* Floating GPS Button */
+        .gps-button {
+            position: absolute; bottom: 30px; right: 20px; z-index: 1000;
+            background: white; width: 55px; height: 55px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.25); cursor: pointer; border: 2px solid var(--primary); font-size: 24px;
+        }
+        #ocrStatus { font-size: 12px; text-align: center; margin-bottom: 10px; color: var(--primary); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <div class="section-title">🚀 Shipper Ultimate Pro</div>
+    
+    <input type="file" id="imageInput" accept="image/*" capture="environment" style="display: none;">
+    <button class="btn-ocr" onclick="document.getElementById('imageInput').click()">📷 QUÉT ĐƠN HÀNG (AI)</button>
+    <div id="ocrStatus" style="display: none;">Đang xử lý ảnh...</div>
+
+    <div class="input-group">
+        <label>Khách hàng:</label>
+        <input type="text" id="custName" placeholder="Tên khách hàng">
+        <input type="tel" id="custPhone" placeholder="Số điện thoại" style="margin-top:5px">
+    </div>
+    <div class="input-group">
+        <label>Địa chỉ & Ghi chú:</label>
+        <input type="text" id="custAddress" placeholder="Địa chỉ chi tiết">
+        <input type="text" id="custNote" placeholder="Ghi chú (vđ: Giao cổng sau)" style="margin-top:5px">
+    </div>
+    <div class="input-group">
+        <label>Tọa độ (Chạm vào bản đồ):</label>
+        <input type="text" id="custLatLng" readonly style="background:#f0f2f5" placeholder="Tọa độ tự động cập nhật">
+    </div>
+    
+    <button class="btn-save" onclick="luuKhachHang()">💾 LƯU VÀO DANH BẠ</button>
+
+    <div class="delivery-queue">
+        <strong style="font-size:15px">🚚 Lộ trình đang đi</strong>
+        <div id="queueList" style="margin-top:10px;"><small style="color:#999">Chưa chọn đơn hàng nào...</small></div>
+        <div style="display:flex; gap:10px; margin-top:15px;">
+            <button class="btn-optimize" onclick="toiUuLoTrinh()">⚡ Tối ưu</button>
+            <button class="btn-route" onclick="batDauLoTrinh()">🗺️ Chỉ đường</button>
+        </div>
+    </div>
+
+    <div id="customerList" style="margin-top:25px;"></div>
+</div>
+
+<div id="map">
+    <div class="gps-button" onclick="timToiNgay()">📍</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+<script>
+    // 1. Khởi tạo Bản đồ (Dùng Esri để tránh lỗi 403)
+    let map = L.map('map', { zoomControl: false }).setView([10.762622, 106.660172], 13);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}').addTo(map);
+
+    let customers = JSON.parse(localStorage.getItem('shipper_db_final')) || [];
+    let deliveryQueue = [];
+    let userLocation = null;
+    let routingControl = null;
+    let tempMarker = null;
+    let userMarker = null;
+
+    // 2. Xử lý GPS
+    navigator.geolocation.watchPosition(p => {
+        userLocation = L.latLng(p.coords.latitude, p.coords.longitude);
+        if (userMarker) userMarker.setLatLng(userLocation);
+        else userMarker = L.circleMarker(userLocation, { radius: 9, fillColor: "#007bff", color: "#fff", weight: 3, fillOpacity: 1 }).addTo(map);
+    }, null, { enableHighAccuracy: true });
+
+    function timToiNgay() {
+        if (userLocation) map.flyTo(userLocation, 16);
+        else alert("Đang tìm tín hiệu GPS...");
+    }
+
+    // 3. Chọn điểm trên bản đồ
+    map.on('click', e => {
+        document.getElementById('custLatLng').value = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
+        if (tempMarker) map.removeLayer(tempMarker);
+        tempMarker = L.marker(e.latlng, { draggable: true }).addTo(map);
+    });
+
+    // 4. AI Quét ảnh (OCR)
+    document.getElementById('imageInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const status = document.getElementById('ocrStatus');
+        status.style.display = 'block';
+        
+        Tesseract.recognize(file, 'vie').then(({ data: { text } }) => {
+            status.style.display = 'none';
+            // Tìm SĐT
+            const phoneMatch = text.match(/(0[3|5|7|8|9][0-9]{8})\b/);
+            if (phoneMatch) document.getElementById('custPhone').value = phoneMatch[0];
+            // Lấy dòng đầu làm tên khách
+            const lines = text.split('\n').filter(l => l.trim().length > 3);
+            if (lines.length > 0) document.getElementById('custName').value = lines[0].substring(0, 20);
+            alert("Đã quét xong thông tin đơn hàng!");
+        });
+    });
+
+    // 5. Quản lý khách hàng
+    function luuKhachHang() {
+        const name = document.getElementById('custName').value;
+        const latlng = document.getElementById('custLatLng').value;
+        if (!name || !latlng) return alert("Vui lòng nhập tên và chạm vào bản đồ để chọn vị trí!");
+
+        const [lat, lng] = latlng.split(',').map(Number);
+        customers.push({
+            name, lat, lng,
+            phone: document.getElementById('custPhone').value,
+            address: document.getElementById('custAddress').value,
+            note: document.getElementById('custNote').value,
+            history: []
+        });
+        
+        localStorage.setItem('shipper_db_final', JSON.stringify(customers));
+        if (tempMarker) { map.removeLayer(tempMarker); tempMarker = null; }
+        hienThiDanhSach();
+        ['custName','custPhone','custAddress','custNote','custLatLng'].forEach(id => document.getElementById(id).value = '');
+    }
+
+    function hienThiDanhSach() {
+        const container = document.getElementById('customerList');
+        container.innerHTML = '<strong>📇 Danh bạ khách hàng</strong><br><br>';
+        customers.forEach((c, i) => {
+            const h = c.history.length ? `💡 Thói quen: ${c.history[c.history.length-1]}` : "";
+            container.innerHTML += `
+                <div class="customer-item">
+                    <div style="display:flex; justify-content:space-between; align-items:center">
+                        <strong style="font-size:16px">${c.name}</strong>
+                        <a href="tel:${c.phone}" class="cust-phone">📞 Gọi</a>
+                    </div>
+                    <span class="cust-address">${c.address || "Vị trí đã ghim"}</span>
+                    ${c.note ? `<span class="cust-note">📝 ${c.note}</span>` : ''}
+                    <span class="habit-tag">${h}</span>
+                    <div style="display:flex; gap:8px; margin-top:12px">
+                        <button style="background:var(--primary); padding:8px; font-size:12px" onclick="themVaoQueue(${i})">+ Lộ trình</button>
+                        <button style="background:var(--danger); padding:8px; font-size:12px" onclick="xoaKhach(${i})">Xong/Xóa</button>
+                    </div>
+                </div>`;
+        });
+    }
+
+    // 6. Lộ trình & Tối ưu
+    function themVaoQueue(i) {
+        if (!deliveryQueue.find(q => q.lat === customers[i].lat)) {
+            deliveryQueue.push(customers[i]);
+            capNhatQueueUI();
+        }
+    }
+
+    function capNhatQueueUI() {
+        const q = document.getElementById('queueList');
+        q.innerHTML = deliveryQueue.length ? deliveryQueue.map((c, i) => `
+            <div class="queue-item">
+                <span><b>${i+1}.</b> ${c.name}</span>
+                <span onclick="deliveryQueue.splice(${i},1);capNhatQueueUI()" style="color:var(--danger); cursor:pointer; font-weight:bold">✖</span>
+            </div>`).join('') : '<small style="color:#999">Chưa chọn đơn hàng...</small>';
+    }
+
+    function toiUuLoTrinh() {
+        if (!userLocation || deliveryQueue.length < 2) return alert("Cần bật GPS và chọn ít nhất 2 đơn!");
+        let optimized = [];
+        let unvisited = [...deliveryQueue];
+        let current = userLocation;
+        while (unvisited.length > 0) {
+            unvisited.sort((a, b) => L.latLng(current).distanceTo(L.latLng(a.lat, a.lng)) - L.latLng(current).distanceTo(L.latLng(b.lat, b.lng)));
+            let next = unvisited.shift();
+            optimized.push(next);
+            current = L.latLng(next.lat, next.lng);
+        }
+        deliveryQueue = optimized;
+        capNhatQueueUI();
+        batDauLoTrinh();
+    }
+
+    function batDauLoTrinh() {
+        if (routingControl) map.removeControl(routingControl);
+        if (!userLocation || deliveryQueue.length === 0) return alert("Vui lòng chọn đơn hàng!");
+        const waypoints = [userLocation, ...deliveryQueue.map(c => L.latLng(c.lat, c.lng))];
+        routingControl = L.Routing.control({
+            waypoints,
+            language: 'vi',
+            createMarker: (i, wp) => L.marker(wp.latLng).bindPopup(i === 0 ? "Bạn" : deliveryQueue[i-1].name)
+        }).addTo(map);
+    }
+
+    function xoaKhach(i) {
+        if (confirm("Giao xong đơn này?")) {
+            const now = new Date();
+            customers[i].history.push(`${now.getHours()}:${now.getMinutes()}`);
+            customers.splice(i, 1);
+            localStorage.setItem('shipper_db_final', JSON.stringify(customers));
+            hienThiDanhSach();
+            if (routingControl) map.removeControl(routingControl);
+        }
+    }
+
+    hienThiDanhSach();
+</script>
+</body>
+</html>
